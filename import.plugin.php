@@ -1,6 +1,6 @@
 <?php
 
-	class Import extends Plugin {
+	class Import extends Plugin implements Importer {
 		
 		public function action_update_check ( ) {
 			
