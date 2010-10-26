@@ -4,6 +4,15 @@
 		
 		private $import_name = 'BlogML XML File';
 		
+		// a list of default options we should ignore when performing an import
+		private $ignore_options = array(
+			'base_url',			// may have changed, will be defined in the new instance's install instead
+			'cron_running',		// internal
+			'db_version',		// internal
+			'next_cron',		// internal
+			'GUID',				// will have changed, will be defined in the new instance's install instead
+		);
+		
 		public function action_update_check ( ) {
 			
 			Update::add( 'Import', '7c4133b7-6578-4dc0-9dbe-f8ef89a9ec80', $this->info->version );
@@ -29,7 +38,7 @@
 			// inputs we'll hand to our stage methods
 			$inputs = array();
 			
-			// figure out which stage we're on
+			// figure out which stage we're on and do its parsing
 			switch ( $stage ) {
 				
 				case 1:
@@ -117,6 +126,13 @@
 			
 		}
 		
+		/**
+		 * Alter the enctype of the importer's <form> for the steps that deal with file uploading.
+		 * 
+		 * @param string $enctype The current form enctype.
+		 * @param string $import_name The name of the importer currently running.
+		 * @param string $stage The stage we're currently on (or '' for the first one).
+		 */
 		public function filter_import_form_enctype ( $enctype, $import_name, $stage ) {
 			
 			// only run if we're the importer being used
@@ -141,7 +157,7 @@
 			
 			try {
 				$xml = new SimpleXMLElement($xml);
-				return true;
+				return $xml;
 			}
 			catch ( Exception $e ) {
 				return false;
@@ -149,6 +165,11 @@
 			
 		}
 		
+		/**
+		 * Save the temporary uploaded file to a permanent temporary file.
+		 * 
+		 * @param string $filename The name of the temporary upload file.
+		 */
 		private function save_file ( $filename ) {
 			
 			$name = tempnam( sys_get_temp_dir(), 'habari-' );
