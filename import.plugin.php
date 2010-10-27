@@ -11,13 +11,8 @@
 			'db_version',		// internal
 			'next_cron',		// internal
 			'GUID',				// will have changed, will be defined in the new instance's install instead
+			'installed',		// internal
 		);
-		
-		public function action_update_check ( ) {
-			
-			Update::add( 'Import', '7c4133b7-6578-4dc0-9dbe-f8ef89a9ec80', $this->info->version );
-			
-		}
 		
 		public function filter_import_names ( $import_names ) {
 			
