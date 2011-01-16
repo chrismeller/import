@@ -12,7 +12,13 @@
 			'next_cron',		// internal
 			'GUID',				// will have changed, will be defined in the new instance's install instead
 			'installed',		// internal
+			'active_plugins',	// this will likely include a number of plugins you don't already have and will deactivate the importer - bad!
 		);
+		
+		// store the tags, posts, and users we're importing so we can convert old IDs to new IDs
+		private $tags = array();
+		private $posts = array();
+		private $users = array();
 		
 		public function filter_import_names ( $import_names ) {
 			
@@ -129,6 +135,7 @@
 			$output .= $this->import_authors( $inputs['xml'] );
 			$output .= $this->import_options( $inputs['xml'] );
 			$output .= $this->import_tags( $inputs['xml'] );
+			$output .= $this->import_posts( $inputs['xml'] );
 			
 			return $output;
 			
@@ -354,18 +361,110 @@
 		
 		private function import_tags ( $xml ) {
 			
-			$output = '';
+			$output = '<h3>' . _t( 'Tags' ) . '</h3>';
 			
 			$output .= '<ul>';
 			foreach ( $xml->categories->category as $category ) {
 				
-				$id = $category->attributes()->id;
-				$title = $category->title;
+				// get the properties and cast them
+				$id = intval( $category->attributes()->id );
+				$term = strval( $category->title );
+				$term_display = strval( $category->attributes()->description );
 				
-				// @todo this seems to duplicate existing tags, but it shouldn't
-				$tag = Tag::create( array( 'tag_text' => $title ) );
+				// try to get the tag
+				$tag = Tags::get_by_text( $term );
 				
-				$output .= '<li>' . _t('Creating tag %s.', array( $title ) ) . '</li>';
+				if ( $tag == false ) {
+					// create the tag, it didn't exist - assumes text passed in is the display version, so that's fine
+					$tag = Tag::create( array(
+						'term' => $term,
+						'term_display' => $term_display,
+					) );
+					$output .= '<li>' . _t('Created tag %s.', array( $term ) ) . '</li>';
+				}
+				else {
+					$output .= '<li>' . _t('Found existing tag %s.', array( $term ) ) . '</li>';
+				}
+				
+				// save the old ID => new ID so we can reference it properly for posts
+				$this->tags[ $id ] = $tag->id;
+				
+			}
+			$output .= '</ul>';
+			
+			return $output;
+			
+		}
+		
+		private function import_posts ( $xml ) {
+			
+			$output = '<h3>' . _t( 'Posts' ) . '</h3>';
+			
+			$output .= '<ul>';
+			foreach ( $xml->posts->post as $post ) {
+				
+				// get our values and cast them
+				$id = intval( $post['id'] );
+				$date_created = HabariDateTime::date_create( $post['date-created'] );
+				$date_modified = HabariDateTime::date_create( $post['date-modified'] );
+				$approved = (boolean)$post['approved'];
+				$slug = ltrim( $post['post-url'], '/' );	// it's a relative path, we want to trim the / before it so it's just a slug
+				$type = strval( $post['type'] );
+				
+				$title = strval( $post->title );
+				$content = strval( $post->content );
+				// we could also use this as the slug. i'm not sure what it's really for, though
+				// $slug = strval( $post->{'post-name'} );
+				
+				// get the first author, we only support one
+				$author_id = intval( $post->authors->author[0]->attributes()->ref );
+				
+				// create the post
+				$post = Post::create( array(
+					'title' => $title,
+					'content' => $content,
+					'user_id' => $this->users[ $author_id ],
+					'status' => ( $approved == true ) ? Post::status('published') : Post::status('draft'),
+					'pubdate' => $date_created,
+					'updated' => $date_modified,		// major edit, used modified
+					'modified' => $date_modified,		// minor edit, we'll set it to the same modified
+					'content_type' => Post::type( $type ),
+					'slug' => $slug,
+				) );
+				
+				$post->info->old_id = $id;
+				$post->info->commit();
+				
+				$output .= '<li>' . _t('Created post %s', array( $title ));
+				
+				// get all the post tags
+				$post_tags = array();
+				$output .= '<ul>';
+				foreach ( $post->categories->category as $tag ) {
+					
+					$old_id = $tag->attributes()->ref;
+					
+					// $this->tags is old ID => new ID. we'll key the posts_tags array just for our own sanity
+					$post_tags[ $old_id ] = $this->tags[ $old_id ];
+					
+					$output .= '<li>' . _t('Tagged post with old tag ID %1$d, new tag ID %2$d', array( $old_id, $this->tags[ $old_id ] )) . '</li>';
+					
+				}
+				$output .= '</ul>';
+				
+				$post->tags = $post_tags;
+				$post->update();		// save the tags
+				
+				// get all the post comments
+				$output .= '<ul>';
+				foreach ( $post->comments->comment as $comment ) {
+					
+					// @todo get the comments!
+					
+				}
+				$output .= '</ul>';
+				
+				$output .= '</li>';
 				
 			}
 			$output .= '</ul>';
