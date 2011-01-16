@@ -301,56 +301,49 @@
 			$output = '<h3>' . _t( 'Options' ) . '</h3>';
 			
 			$output .= '<ul>';
-			foreach ( $xml->children() as $child ) {
+			foreach ( $xml->{'extended-properties'}->property as $property ) {
 				
-				if ( $child->getName() == 'extended-properties' ) {
+				
+				// get the attributes we need and cast them as strings
+				$name = (string) $property->attributes()->name;
+				$value = (string) $property->attributes()->value;
+				
+				if ( in_array( $name, $this->ignore_options ) ) {
+					$output .= '<li>' . _t('Skipping option %s', array($name) ) . '</li>';
+					continue;
+				}
+				
+				$output .= '<li>' . _t('Importing option %s', array($name) ) . '</li>';
+				
+				// try to unserialize the option value
+				
+				// unserialize() can return false on error or if it's the actual serialized value
+				// so make sure that the value is not a serialized 'false'
+				if ( $value === serialize(false) ) {
+					// just unserialize it
+					$value = false;
+				}
+				else {
 					
-					foreach ( $child->property as $property ) {
-						
-						// get the attributes we need and cast them as strings
-						$name = (string) $property->attributes()->name;
-						$value = (string) $property->attributes()->value;
-						
-						if ( in_array( $name, $this->ignore_options ) ) {
-							$output .= '<li>' . _t('Skipping option %s', array($name) ) . '</li>';
-							continue;
-						}
-						
-						$output .= '<li>' . _t('Importing option %s', array($name) ) . '</li>';
-						
-						// try to unserialize the option value
-						
-						// unserialize() can return false on error or if it's the actual serialized value
-						// so make sure that the value is not a serialized 'false'
-						if ( $value === serialize(false) ) {
-							// just unserialize it
-							$value = false;
-						}
-						else {
-							
-							// @ to hide any errors when unserializing
-							$t_value = @unserialize( $value );
-							
-							// if $t_value is false, that means it's an error (we checked for boolean value false earlier)
-							if ( $t_value === false ) {
-								// nothing - use $value as is
-							}
-							else {
-								// we unserialized successfully, use $t_value
-								$value = $t_value;
-							}
-							
-						}
-						
-						// set the option
-						Options::set( $name, $value );
-						
-						// log a debug message
-						EventLog::log( _t('Imported option %s', array( $property->attributes()->name )), 'debug', 'import', 'BlogML', array( $property->attributes()->name, $property->attributes()->value ) );
-						
+					// @ to hide any errors when unserializing
+					$t_value = @unserialize( $value );
+					
+					// if $t_value is false, that means it's an error (we checked for boolean value false earlier)
+					if ( $t_value === false ) {
+						// nothing - use $value as is
+					}
+					else {
+						// we unserialized successfully, use $t_value
+						$value = $t_value;
 					}
 					
 				}
+				
+				// set the option
+				Options::set( $name, $value );
+				
+				// log a debug message
+				EventLog::log( _t('Imported option %s', array( $name )), 'debug', 'import', 'BlogML', array( $name, $value ) );
 				
 			}
 			$output .= '</ul>';
