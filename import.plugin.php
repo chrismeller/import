@@ -225,7 +225,7 @@
 		
 		private function import_authors ( $xml ) {
 			
-			$output = '';
+			$output = '<h3>' . _t( 'Users' ) . '</h3>';
 			
 			// save the number of users we end up creating
 			$user_count = 0;
@@ -233,18 +233,28 @@
 			$output .= '<ul>';
 			foreach ( $xml->authors->author as $author ) {
 				
-				// see if a user with this username already exists
-				$user = User::get_by_name( $author->title );
+				// pull out all our values and cast them
+				$id = intval( $author['id'] );
+				$approved = (boolean)$author['approved'];
+				$email = strval( $author['email'] );
+				$username = strval( $author->title );
 				
-				if ( $user instanceof User ) {
+				
+				// see if a user with this username already exists
+				$user = User::get_by_name( $username );
+				
+				if ( $user !== false ) {
 					// if the user exists, save their old ID into an info attribute
-					$user->info->old_id = intval( $author->attributes()->id );
+					$user->info->old_id = $id;
 					// and update
-					$user->update();
+					$user->info->commit();
 					
-					$output .= '<li>' . _t('Associated imported user %s with existing user %s', array( $author->title, $user->username ) ) . '</li>';
+					// store the old ID so we can reference it for posts later on
+					$this->users[ $id ] = $user->id;
 					
-					EventLog::log( _t('Associated imported user %s with existing user %s.', array( $author->title, $user->username )), 'info', 'import', 'BlogML' );
+					$output .= '<li>' . _t('Associated imported user %1$s with existing user %2$s', array( $username, $user->username ) ) . '</li>';
+					
+					EventLog::log( _t('Associated imported user %1$s with existing user %1$s.', array( $username, $user->username )), 'info', 'import', 'BlogML' );
 					
 				}
 				else {
@@ -252,14 +262,19 @@
 					// we must create a new user
 					try {
 						
-						$u = new User();
-						$u->username = $author->title;
-						$u->email = $author->attributes()->email;
-						$u->info->old_id = intval( $author->attributes()->id );
-						$u->insert();
+						$u = User::create( array(
+							'username' => $username,
+							'email' => $email,
+						) );
+						
+						$u->info->old_id = $id;
+						$u->info->commit();
+						
+						// store the old ID so we can reference it for posts later on
+						$this->users[ $id ] = $user->id;
 
-						$output .= '<li>' . _t('Created new user %s. Their old ID was %d.', array( $user->username, $author->attributes()->id )) . '</li>';
-						EventLog::log( _t('Created new user %s. Their old ID was %d.', array( $user->username, $author->attributes()->id )), 'info', 'import', 'BlogML' );
+						$output .= '<li>' . _t('Created new user %1$s. Their old ID was %2$d.', array( $user->username, $id )) . '</li>';
+						EventLog::log( _t('Created new user %1$s. Their old ID was %2$d.', array( $user->username, $id )), 'info', 'import', 'BlogML' );
 						
 						$user_count++;
 						
