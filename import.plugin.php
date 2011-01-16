@@ -181,7 +181,7 @@
 			
 		}
 		
-	/**
+		/**
 		 * Attempt to load the contents of a file and parse it as an XML object.
 		 * 
 		 * @param string $filename The complete local filename of the file to attempt to load.
@@ -283,7 +283,7 @@
 						
 						// no idea why we might error out, but catch it if we do
 						EventLog::log( $e->getMessage(), 'err', 'import', 'BlogML', array( $author->asXML(), $e ) );
-						Session::error( _t( 'There was an error importing user %s. See the EventLog for details.', array( $author->title ) ) );
+						Session::error( _t( 'There was an error importing user %1$s. See the EventLog for details.', array( $username ) ) );
 						
 					}
 					
