@@ -11,6 +11,8 @@
 			'db_version',		// internal
 			'next_cron',		// internal
 			'GUID',				// will have changed, will be defined in the new instance's install instead
+			'private-GUID',
+			'public-GUID',
 			'installed',		// internal
 			'active_plugins',	// this will likely include a number of plugins you don't already have and will deactivate the importer - bad!
 		);
