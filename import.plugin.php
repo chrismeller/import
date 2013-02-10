@@ -278,10 +278,10 @@
 						$u->info->commit();
 						
 						// store the old ID so we can reference it for posts later on
-						$this->users[ $id ] = $user->id;
+						$this->users[ $id ] = $u->id;
 
-						$output .= '<li>' . _t('Created new user %1$s. Their old ID was %2$d.', array( $user->username, $id )) . '</li>';
-						EventLog::log( _t('Created new user %1$s. Their old ID was %2$d.', array( $user->username, $id )), 'info', 'import', 'BlogML' );
+						$output .= '<li>' . _t('Created new user %1$s. Their old ID was %2$d.', array( $u->username, $id )) . '</li>';
+						EventLog::log( _t('Created new user %1$s. Their old ID was %2$d.', array( $u->username, $id )), 'info', 'import', 'BlogML' );
 						
 						$user_count++;
 						
@@ -298,7 +298,6 @@
 				
 			}	// foreach author
 			$output .= '</ul>';
-			
 			return $output;
 			
 		}
@@ -398,6 +397,8 @@
 		
 		private function import_posts ( $xml ) {
 			
+			$in_db = DB::get_column( 'select value from {postinfo} where name = :name', array( ':name' => 'old_id' ) );
+
 			$output = '<h3>' . _t( 'Posts' ) . '</h3>';
 			
 			$output .= '<ul>';
@@ -409,7 +410,13 @@
 				$date_modified = HabariDateTime::date_create( $post['date-modified'] );
 				$approved = (boolean)$post['approved'];
 				$slug = ltrim( $post['post-url'], '/' );	// it's a relative path, we want to trim the / before it so it's just a slug
-				$type = strval( $post['type'] );
+				$type = trim( strval( $post['type'] ) );
+				if( $type == 'normal') {
+					$type = 'entry';
+				}
+				else {
+					$type = 'page';
+				}
 				
 				$title = strval( $post->title );
 				$content = strval( $post->content );
@@ -418,9 +425,15 @@
 				
 				// get the first author, we only support one
 				$author_id = intval( $post->authors->author[0]->attributes()->ref );
+
+				if ( in_array( $id, $in_db ) ) {
+					// Skip the post if we already have it
+					$output .= '<li>' . _t('Found existing post %s.', array( $slug ) ) . '</li>';
+					continue;
+				}
 				
 				// create the post
-				$post = Post::create( array(
+				$new_post = Post::create( array(
 					'title' => $title,
 					'content' => $content,
 					'user_id' => $this->users[ $author_id ],
@@ -432,38 +445,38 @@
 					'slug' => $slug,
 				) );
 				
-				$post->info->old_id = $id;
-				$post->info->commit();
+				$new_post->info->old_id = $id;
 				
 				$output .= '<li>' . _t('Created post %s', array( $title ));
 				
 				// get all the post tags
-				$post_tags = array();
+				$post_tags = new Terms();
 				$output .= '<ul>';
 				foreach ( $post->categories->category as $tag ) {
 					
-					$old_id = $tag->attributes()->ref;
+					$old_id = intval( $tag->attributes()->ref );
 					
 					// $this->tags is old ID => new ID. we'll key the posts_tags array just for our own sanity
-					$post_tags[ $old_id ] = $this->tags[ $old_id ];
+					$post_tags[] = Tags::get_by_id( $this->tags[ $old_id ] );
 					
 					$output .= '<li>' . _t('Tagged post with old tag ID %1$d, new tag ID %2$d', array( $old_id, $this->tags[ $old_id ] )) . '</li>';
 					
 				}
 				$output .= '</ul>';
 				
-				$post->tags = $post_tags;
-				$post->update();		// save the tags
+
+				$new_post->tags = $post_tags;
+				$new_post->update();		// save the tags and original id
 				
 				// get all the post comments
 				$output .= '<ul>';
 				foreach ( $post->comments->comment as $comment ) {
 					
 					// @todo get the comments!
-					
+
 				}
 				$output .= '</ul>';
-				
+
 				$output .= '</li>';
 				
 			}
