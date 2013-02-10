@@ -474,7 +474,47 @@
 				$output .= '<ul>';
 				foreach ( $post->comments->comment as $comment ) {
 					
-					// @todo get the comments!
+					// pull out and cast our values
+					$comment_id = intval( $comment['id'] );
+					$comment_date_created = HabariDateTime::date_create( $comment['date-create'] );
+					$comment_date_modified = HabariDateTime::date_create( $comment['date-modified'] );
+					$comment_approved = (boolean)$comment['approved'];
+					$comment_user_name = trim( $comment['user-name'] );
+					$comment_user_url = trim( $comment['user-url'] );
+					$comment_title = strval( $comment->title );
+					$comment_content = strval( $comment->content );
+
+					// these are extensions for habari-specific data, so we make sure they actually exist
+					$comment_user_email = isset( $comment['user-email'] ) ? strval( $comment['user-email'] ) : null;
+					$comment_user_ip = isset( $comment['user-ip'] ) ? strval( $comment['user-ip'] ) : null;
+					$comment_status = isset( $comment['status'] ) ? Comment::status( strval( $comment['status'] ) ) : null;
+					$comment_type = isset( $comment['type'] ) ? Comment::type( strval( $comment['type'] ) ) : null;
+
+					$new_comment_array = array(
+						'post_id' => $new_post->id,
+						'name' => $comment_user_name,
+						'email' => $comment_user_email,
+						'url' => $comment_user_url,
+						'ip' => $comment_user_ip,
+						'content' => $comment_content,
+						'date' => $comment_date_created,
+					);
+
+					if ( $comment_status ) {
+						$new_comment_array['status'] = $comment_status;
+					}
+					else {
+						$new_comment_array['status'] = ( $comment_approved == true ) ? Comment::STATUS_APPROVED : Comment::STATUS_UNAPPROVED;
+					}
+
+					if ( $comment_type ) {
+						$new_comment_array['type'] = $comment_type;
+					}
+					else {
+						// nothing, we'll just use the default
+					}
+
+					$new_comment = Comment::create( $new_comment_array );
 
 				}
 				$output .= '</ul>';
