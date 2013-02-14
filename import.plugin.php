@@ -15,6 +15,12 @@
 			'public-GUID',
 			'installed',		// internal
 			'active_plugins',	// this will likely include a number of plugins you don't already have and will deactivate the importer - bad!
+			'pluggable_versions',	// ditto
+			'theme_name',		// the theme may not be installed
+			'theme_dir',		// ditto
+			'importing',		// internal
+			'db_version',		// internal
+			'updates_beacons',	// only applies to active pluggables and the habari install
 		);
 		
 		// store the tags, posts, and users we're importing so we can convert old IDs to new IDs
